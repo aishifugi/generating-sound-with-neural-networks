@@ -32,6 +32,7 @@ class VAE:
         self.conv_strides = conv_strides # [1, 2, 2]
         self.latent_space_dim = latent_space_dim # 2
         self.reconstruction_loss_weight = 1000
+        self.sparsity_param = 0.1
 
         self.encoder = None
         self.decoder = None
@@ -88,8 +89,12 @@ class VAE:
     def _calculate_combined_loss(self, y_target, y_predicted):
         reconstruction_loss = self._calculate_reconstruction_loss(y_target, y_predicted)
         kl_loss = self._calculate_kl_loss(y_target, y_predicted)
-        combined_loss = self.reconstruction_loss_weight * reconstruction_loss\
-                                                         + kl_loss
+        
+        conv1_weights = self.encoder.layers[1].get_weights()[0]
+        l1_norm = self.sparsity_param * tf.norm(conv1_weights, ord=1) # L1 Penalty for the encoder
+        l1_norm = tf.reshape(l1_norm, [-1])
+
+        combined_loss = self.reconstruction_loss_weight * reconstruction_loss + kl_loss + l1_norm
         return combined_loss
 
     def _calculate_reconstruction_loss(self, y_target, y_predicted):
